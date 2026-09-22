@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#FBFAF6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15170F" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-title" content="ボイスメモ">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%234A6B3A'/%3E%3Crect x='70' y='40' width='40' height='70' rx='20' fill='%23fff'/%3E%3Cpath d='M55 95a35 35 0 0 0 70 0' fill='none' stroke='%23fff' stroke-width='10' stroke-linecap='round'/%3E%3Cpath d='M90 130v20M70 150h40' stroke='%23fff' stroke-width='10' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  body{margin:0}
+  [hidden]{display:none!important}
+</style>
+<title>現場ボイスメモ</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --ground:#FBFAF6;
+    --surface:#FFFFFF;
+    --surface-sunk:#F2F0E8;
+    --line:#DFDCCF;
+    --ink:#23211A;
+    --ink-soft:#5E5B4E;
+    --ink-faint:#8D8A7C;
+    --leaf:#4A6B3A;
+    --leaf-soft:#EAF0E2;
+    --clay:#A8672F;
+    --rec:#C0392B;
+    --rec-soft:#FBEAE7;
+    --shadow:0 1px 2px rgba(35,33,26,.06), 0 8px 24px rgba(35,33,26,.06);
+    --fs-body:17px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#15170F;
+      --surface:#1E2018;
+      --surface-sunk:#262921;
+      --line:#35382D;
+      --ink:#E9E7DC;
+      --ink-soft:#AFAC9D;
+      --ink-faint:#7E7B6D;
+      --leaf:#9DBE80;
+      --leaf-soft:#28301F;
+      --clay:#D3985E;
+      --rec:#E8705F;
+      --rec-soft:#33201C;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#15170F;
+    --surface:#1E2018;
+    --surface-sunk:#262921;
+    --line:#35382D;
+    --ink:#E9E7DC;
+    --ink-soft:#AFAC9D;
+    --ink-faint:#7E7B6D;
+    --leaf:#9DBE80;
+    --leaf-soft:#28301F;
+    --clay:#D3985E;
+    --rec:#E8705F;
+    --rec-soft:#33201C;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box}
+  html{height:100%;box-sizing:border-box}
+  body{
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    background:var(--ground);
+    color:var(--ink);
+    font-family:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+    font-size:var(--fs-body);
+    line-height:1.7;
+    -webkit-text-size-adjust:100%;
+  }
+  body[data-size="large"]{--fs-body:21px}
+
+  /* ---------- header ---------- */
+  header{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 16px;
+    background:var(--surface);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;flex-direction:column;min-width:0;flex:1}
+  .brand b{font-size:15px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
+  .brand span{
+    font-family:"JetBrains Mono",ui-monospace,monospace;
+    font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);
+  }
+  .hselect{display:flex;gap:6px;flex:0 0 auto}
+  select, .ghost{
+    font-family:inherit;font-size:13px;
+    color:var(--ink);background:var(--surface-sunk);
+    border:1px solid var(--line);border-radius:9px;
+    padding:7px 9px;min-height:38px;
+    appearance:none;-webkit-appearance:none;
+  }
+  .ghost{cursor:pointer;line-height:1}
+  .ghost:active{background:var(--line)}
+
+  /* ---------- status strip ---------- */
+  .strip{
+    flex:0 0 auto;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:8px 16px;
+    background:var(--surface-sunk);
+    border-bottom:1px solid var(--line);
+    font-family:"JetBrains Mono",ui-monospace,monospace;
+    font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-soft);
+  }
+  .state{display:flex;align-items:center;gap:7px;font-weight:500;color:var(--ink)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--ink-faint);flex:0 0 auto}
+  body[data-rec="on"] .dot{background:var(--rec);animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+  @media (prefers-reduced-motion: reduce){body[data-rec="on"] .dot{animation:none}}
+  .strip .sp{margin-left:auto}
+
+  /* ---------- transcript ---------- */
+  main{
+    flex:1 1 auto;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    padding:14px 16px 20px;
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .seg{
+    display:grid;
+    grid-template-columns:52px 1fr;
+    gap:10px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px 12px;
+    box-shadow:var(--shadow);
+  }
+  .seg time{
+    font-family:"JetBrains Mono",ui-monospace,monospace;
+    font-size:11.5px;font-variant-numeric:tabular-nums;
+    color:var(--ink-faint);padding-top:5px;
+  }
+  .seg .txt{
+    outline:none;min-width:0;word-break:break-word;
+    font-size:var(--fs-body);
+  }
+  .seg .txt:focus{
+    box-shadow:inset 0 -2px 0 var(--leaf);
+  }
+  .seg.mark{
+    grid-template-columns:52px 1fr;
+    background:transparent;border:none;box-shadow:none;padding:2px 12px;
+  }
+  .seg.mark .txt{
+    color:var(--clay);font-size:12px;letter-spacing:.1em;
+    border-top:1px dashed var(--line);padding-top:8px;
+  }
+  .interim{
+    padding:10px 12px 10px 74px;
+    color:var(--ink-faint);
+    font-style:normal;
+    border-left:2px solid var(--leaf);
+    margin-left:1px;
+  }
+
+  /* ---------- empty state / tips ---------- */
+  .tips{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px;
+    box-shadow:var(--shadow);
+  }
+  .tips h2{
+    margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:.06em;
+    color:var(--leaf);text-transform:none;
+  }
+  .tips ul{margin:0;padding-left:1.1em;color:var(--ink-soft);font-size:14.5px;line-height:1.75}
+  .tips li+li{margin-top:5px}
+  .tips b{color:var(--ink);font-weight:500}
+  .warn{
+    margin-top:12px;padding:10px 12px;border-radius:10px;
+    background:var(--leaf-soft);color:var(--ink);font-size:13.5px;line-height:1.65;
+  }
+  .fatal{
+    background:var(--rec-soft);border:1px solid var(--rec);
+    border-radius:12px;padding:14px;font-size:14.5px;color:var(--ink);
+  }
+
+  /* ---------- bottom bar ---------- */
+  footer{
+    flex:0 0 auto;
+    background:var(--surface);
+    border-top:1px solid var(--line);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    display:flex;flex-direction:column;gap:9px;
+  }
+  .row{display:flex;gap:9px}
+  .primary{
+    flex:1 1 auto;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    min-height:58px;border:none;border-radius:14px;cursor:pointer;
+    font-family:inherit;font-size:18px;font-weight:700;letter-spacing:.02em;
+    background:var(--leaf);color:#fff;
+  }
+  :root[data-theme="dark"] .primary, :root:not([data-theme="light"]) .primary{}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .primary{color:#15170F}}
+  :root[data-theme="dark"] .primary{color:#15170F}
+  body[data-rec="on"] .primary{background:var(--rec);color:#fff}
+  .primary:active{filter:brightness(.93)}
+  .primary:disabled{background:var(--surface-sunk);color:var(--ink-faint);cursor:default}
+  .sec{
+    flex:1 1 0;min-height:44px;border-radius:11px;cursor:pointer;
+    font-family:inherit;font-size:14px;font-weight:500;
+    background:var(--surface-sunk);color:var(--ink);border:1px solid var(--line);
+  }
+  .sec:active{background:var(--line)}
+  .sec.danger{color:var(--rec)}
+  .toast{
+    position:fixed;left:50%;transform:translateX(-50%);
+    bottom:calc(120px + env(safe-area-inset-bottom, 0px));
+    background:var(--ink);color:var(--ground);
+    padding:9px 16px;border-radius:999px;font-size:14px;font-weight:500;
+    box-shadow:var(--shadow);z-index:20;
+  }
+  :focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <b>現場ボイスメモ</b>
+    <span id="tagline">音声 → 文字 リアルタイム</span>
+  </div>
+  <div class="hselect">
+    <select id="lang" aria-label="認識する言語">
+      <option value="ja-JP">日本語</option>
+      <option value="th-TH">ไทย（タイ語）</option>
+      <option value="vi-VN">Tiếng Việt（ベトナム語）</option>
+      <option value="km-KH">ខ្មែរ（カンボジア語）</option>
+      <option value="en-US">English（英語）</option>
+    </select>
+    <button class="ghost" id="sizeBtn" aria-label="文字サイズを変える">A<sup>+</sup></button>
+  </div>
+</header>
+
+<div class="strip">
+  <div class="state"><span class="dot" id="dot"></span><span id="stateText">待機中</span></div>
+  <span id="clock">00:00</span>
+  <span id="count">0字</span>
+  <span class="sp"><select id="scene" aria-label="場面">
+    <option value="畑">畑・現場</option>
+    <option value="会議">会議</option>
+    <option value="実習生">実習生</option>
+    <option value="電話">電話</option>
+    <option value="">なし</option>
+  </select></span>
+</div>
+
+<main id="main">
+  <div id="segs"></div>
+  <div class="interim" id="interim" hidden></div>
+  <div class="tips" id="tips">
+    <h2>使いかた</h2>
+    <ul>
+      <li>下の<b>「録音してはじめる」</b>を押すと、しゃべった内容がそのまま文字になって溜まっていきます。止めるまで自動で続きます。</li>
+      <li>認識が途切れても<b>自動で復帰</b>します。話の区切りごとに時刻つきの1行になります。</li>
+      <li>文字を<b>タップすれば直せます</b>。誤認識はその場で書き換えてください。</li>
+      <li>右上で<b>言語を切替</b>できます（日本語・タイ語・ベトナム語・カンボジア語・英語）。録音中に替えると次の発言から切り替わります。</li>
+      <li>終わったら<b>「全部コピー」</b>。メモやClaudeにそのまま貼れます。</li>
+      <li>入力は自動保存されます。うっかり閉じても次に開けば残っています。</li>
+    </ul>
+    <div class="warn">
+      <b>iPhoneでの注意</b><br>
+      ・<b>Safari</b> で開いてください（Chromeは音声認識に非対応）。<br>
+      ・音声認識は<b>通信を使います</b>。電波の弱い圃場では途切れます。<br>
+      ・<b>画面を消すと止まります</b>。設定 → 画面表示と明るさ → 自動ロック を「なし」にしておくと安心です。
+    </div>
+  </div>
+  <div class="fatal" id="fatal" hidden></div>
+</main>
+
+<footer>
+  <div class="row">
+    <button class="primary" id="recBtn">
+      <span id="recLabel">録音してはじめる</span>
+    </button>
+  </div>
+  <div class="row">
+    <button class="sec" id="markBtn">区切りを入れる</button>
+    <button class="sec" id="copyBtn">全部コピー</button>
+    <button class="sec danger" id="clearBtn">消す</button>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var LS = {
+    get: function(k, d){ try{ var v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+    set: function(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  };
+
+  var el = {
+    segs: document.getElementById('segs'),
+    interim: document.getElementById('interim'),
+    tips: document.getElementById('tips'),
+    fatal: document.getElementById('fatal'),
+    main: document.getElementById('main'),
+    recBtn: document.getElementById('recBtn'),
+    recLabel: document.getElementById('recLabel'),
+    markBtn: document.getElementById('markBtn'),
+    copyBtn: document.getElementById('copyBtn'),
+    clearBtn: document.getElementById('clearBtn'),
+    lang: document.getElementById('lang'),
+    scene: document.getElementById('scene'),
+    sizeBtn: document.getElementById('sizeBtn'),
+    stateText: document.getElementById('stateText'),
+    clock: document.getElementById('clock'),
+    count: document.getElementById('count')
+  };
+
+  // ---------- state ----------
+  var segments = LS.get('gvm.segments', []);   // {t:"HH:MM", text:"", mark:bool}
+  var elapsed  = LS.get('gvm.elapsed', 0);     // seconds
+  var want = false, rec = null, tickId = null, tickFrom = 0, clearArmed = 0;
+
+  el.lang.value  = LS.get('gvm.lang', 'ja-JP');
+  el.scene.value = LS.get('gvm.scene', '畑');
+  document.body.dataset.size = LS.get('gvm.size', 'normal');
+
+  // ---------- render ----------
+  function two(n){ return (n < 10 ? '0' : '') + n; }
+  function stamp(){ var d = new Date(); return two(d.getHours()) + ':' + two(d.getMinutes()); }
+
+  function render(){
+    el.segs.textContent = '';
+    segments.forEach(function(s, i){
+      var row = document.createElement('div');
+      row.className = 'seg' + (s.mark ? ' mark' : '');
+      var t = document.createElement('time');
+      t.textContent = s.t;
+      var tx = document.createElement('div');
+      tx.className = 'txt';
+      tx.textContent = s.text;
+      if (!s.mark){
+        tx.contentEditable = 'true';
+        tx.spellcheck = false;
+        tx.setAttribute('role','textbox');
+        tx.addEventListener('blur', function(){
+          segments[i].text = tx.textContent.trim();
+          if (!segments[i].text) { segments.splice(i,1); render(); }
+          save();
+        });
+      }
+      row.appendChild(t); row.appendChild(tx);
+      el.segs.appendChild(row);
+    });
+    el.tips.hidden = segments.length > 0;
+    updateCount();
+  }
+
+  function updateCount(){
+    var n = segments.reduce(function(a,s){ return a + (s.mark ? 0 : s.text.length); }, 0);
+    el.count.textContent = n.toLocaleString('ja-JP') + '字';
+  }
+
+  function save(){
+    LS.set('gvm.segments', segments);
+    LS.set('gvm.elapsed', elapsed);
+    updateCount();
+  }
+
+  function atBottom(){
+    return el.main.scrollHeight - el.main.scrollTop - el.main.clientHeight < 120;
+  }
+  function toBottom(){ el.main.scrollTop = el.main.scrollHeight; }
+
+  function commit(text){
+    text = (text || '').trim();
+    if (!text) return;
+    var stick = atBottom();
+    segments.push({ t: stamp(), text: text, mark: false });
+    render(); save();
+    if (stick) toBottom();
+  }
+
+  function showInterim(text){
+    if (text){
+      var stick = atBottom();
+      el.interim.hidden = false;
+      el.interim.textContent = text;
+      if (stick) toBottom();
+    } else {
+      el.interim.hidden = true;
+      el.interim.textContent = '';
+    }
+  }
+
+  var toastId = null;
+  function toast(msg){
+    var old = document.querySelector('.toast');
+    if (old) old.remove();
+    var d = document.createElement('div');
+    d.className = 'toast';
+    d.textContent = msg;
+    document.body.appendChild(d);
+    clearTimeout(toastId);
+    toastId = setTimeout(function(){ d.remove(); }, 2200);
+  }
+
+  // ---------- clock ----------
+  function paintClock(){
+    var s = Math.floor(elapsed);
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+    el.clock.textContent = (h ? h + ':' + two(m) : two(m)) + ':' + two(ss);
+  }
+  function startClock(){
+    tickFrom = Date.now();
+    tickId = setInterval(function(){
+      elapsed += (Date.now() - tickFrom) / 1000;
+      tickFrom = Date.now();
+      paintClock();
+    }, 1000);
+  }
+  function stopClock(){ clearInterval(tickId); tickId = null; save(); }
+
+  // ---------- recognition ----------
+  function setState(txt){ el.stateText.textContent = txt; }
+
+  function spin(){
+    if (!want) return;
+    try { rec = new SR(); } catch (e) { fail('この端末では音声認識を使えません。'); return; }
+    rec.lang = el.lang.value;
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onstart = function(){ setState('聞いています'); };
+
+    rec.onresult = function(e){
+      var live = '';
+      for (var i = e.resultIndex; i < e.results.length; i++){
+        var r = e.results[i];
+        if (r.isFinal) commit(r[0].transcript);
+        else live += r[0].transcript;
+      }
+      showInterim(live);
+    };
+
+    rec.onerror = function(e){
+      var code = e.error;
+      if (code === 'not-allowed' || code === 'service-not-allowed'){
+        fail('マイクの使用が許可されていません。Safariのアドレスバー左の「ぁあ」→ Webサイトの設定 → マイク を「許可」にしてから、もう一度お試しください。');
+      } else if (code === 'audio-capture'){
+        fail('マイクが見つかりません。他のアプリが録音中でないか確認してください。');
+      } else if (code === 'network'){
+        setState('通信待ち — 再接続します');
+      } else if (code !== 'no-speech' && code !== 'aborted'){
+        setState('再開します（' + code + '）');
+      }
+    };
+
+    rec.onend = function(){
+      showInterim('');
+      if (want) { setState('つなぎ直しています'); setTimeout(spin, 350); }
+      else setState('待機中');
+    };
+
+    try { rec.start(); } catch (e) { setTimeout(spin, 500); }
+  }
+
+  function fail(msg){
+    want = false;
+    document.body.dataset.rec = 'off';
+    el.recLabel.textContent = '録音してはじめる';
+    stopClock();
+    setState('停止');
+    el.fatal.hidden = false;
+    el.fatal.textContent = msg;
+  }
+
+  function begin(){
+    if (!SR){
+      el.fatal.hidden = false;
+      el.fatal.textContent = 'このブラウザは音声認識に対応していません。iPhoneでは Safari で開いてください（iOS 14.5 以降）。';
+      return;
+    }
+    el.fatal.hidden = true;
+    want = true;
+    document.body.dataset.rec = 'on';
+    el.recLabel.textContent = '停止する';
+    startClock();
+    setState('マイクを準備中');
+    spin();
+  }
+
+  function halt(){
+    want = false;
+    document.body.dataset.rec = 'off';
+    el.recLabel.textContent = '録音を続ける';
+    stopClock();
+    setState('停止');
+    showInterim('');
+    if (rec) { try { rec.stop(); } catch(e){} }
+  }
+
+  // ---------- controls ----------
+  el.recBtn.addEventListener('click', function(){ want ? halt() : begin(); });
+
+  el.markBtn.addEventListener('click', function(){
+    segments.push({ t: stamp(), text: '— ここで区切り —', mark: true });
+    render(); save(); toBottom();
+  });
+
+  el.copyBtn.addEventListener('click', function(){
+    if (!segments.length){ toast('まだ何もありません'); return; }
+    var d = new Date();
+    var head = ['【' + (el.scene.value || 'メモ') + '】 ' +
+      d.getFullYear() + '/' + two(d.getMonth()+1) + '/' + two(d.getDate())];
+    segments.forEach(function(s){
+      head.push(s.mark ? '' : s.t + '  ' + s.text);
+    });
+    var text = head.join('\n');
+    var done = function(){ toast('コピーしました'); };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done, function(){ legacy(text, done); });
+    } else legacy(text, done);
+  });
+
+  function legacy(text, done){
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select(); ta.setSelectionRange(0, text.length);
+    try { document.execCommand('copy'); done(); }
+    catch(e){ toast('コピーできませんでした'); }
+    ta.remove();
+  }
+
+  el.clearBtn.addEventListener('click', function(){
+    if (Date.now() - clearArmed > 4000){
+      clearArmed = Date.now();
+      el.clearBtn.textContent = '本当に消す?';
+      setTimeout(function(){
+        if (Date.now() - clearArmed >= 4000) el.clearBtn.textContent = '消す';
+      }, 4100);
+      return;
+    }
+    clearArmed = 0;
+    el.clearBtn.textContent = '消す';
+    segments = []; elapsed = 0;
+    paintClock(); render(); save();
+    toast('消しました');
+  });
+
+  el.lang.addEventListener('change', function(){
+    LS.set('gvm.lang', el.lang.value);
+    if (want && rec){ try { rec.stop(); } catch(e){} }   // onend が新しい言語で張り直す
+  });
+  el.scene.addEventListener('change', function(){ LS.set('gvm.scene', el.scene.value); });
+
+  el.sizeBtn.addEventListener('click', function(){
+    var next = document.body.dataset.size === 'large' ? 'normal' : 'large';
+    document.body.dataset.size = next;
+    LS.set('gvm.size', next);
+  });
+
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden && want) setState('画面が消えています');
+    else if (want) { setState('聞いています'); }
+  });
+
+  // ---------- boot ----------
+  if (!SR){
+    el.fatal.hidden = false;
+    el.fatal.textContent = 'このブラウザは音声認識に対応していません。iPhoneでは Safari で開いてください（iOS 14.5 以降）。Macでも Safari / Chrome で動きます。';
+    el.recBtn.disabled = true;
+    el.recLabel.textContent = '音声認識が使えません';
+  }
+  document.body.dataset.rec = 'off';
+  if (segments.length) el.recLabel.textContent = '録音を続ける';
+  paintClock();
+  render();
+  toBottom();
+})();
+</script>
+
+</body>
+</html>
