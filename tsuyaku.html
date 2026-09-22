@@ -207,11 +207,12 @@
 <div class="sheet-bg" id="sheetBg" hidden>
   <div class="sheet" role="dialog" aria-label="設定">
     <h3>翻訳サーバーの設定</h3>
-    <p>Google Apps Script で作った翻訳窓口の URL（<code>/exec</code> で終わるもの）を貼ってください。この端末に保存され、外には送られません。</p>
+    <p>翻訳窓口の URL は組み込み済みなので、通常はここを触る必要はありません。窓口を作り直したときだけ、新しい URL（<code>/exec</code> で終わるもの）を貼ってください。</p>
     <label for="gasUrl">Apps Script の URL</label>
     <input id="gasUrl" type="url" placeholder="https://script.google.com/macros/s/……/exec" autocomplete="off" autocapitalize="off" spellcheck="false">
     <div id="testMsg"></div>
     <div class="row">
+      <button class="sec" id="resetBtn">標準に戻す</button>
       <button class="sec" id="testBtn">接続テスト</button>
       <button class="sec on" id="saveBtn">保存して閉じる</button>
     </div>
@@ -241,7 +242,8 @@
   var items = LS.get('tk.items', []);
   var partnerKey = LS.get('tk.partner','th');
   var autoSpeak = LS.get('tk.auto', true);
-  var gasUrl = LS.get('tk.gas','');
+  var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbyAclRVMtNxDc0ZeMVAiZ3Sxz3zh92GmIWESstSMiK9gFArVJE8Wo563Pt1EwvzfTrI/exec';
+  var gasUrl = (LS.get('tk.gas','')||'').trim() || DEFAULT_GAS;
   var want=false, side=null, rec=null, speaking=false, clearArmed=0, pressAt=0, lastInterim='', gotFinal=false;
 
   el.partner.value = partnerKey;
@@ -490,13 +492,14 @@
   function closeSheet(){ el.sheetBg.hidden=true; }
   el.setBtn.onclick=openSheet; el.noUrlBtn.onclick=openSheet;
   el.sheetBg.addEventListener('click',function(e){ if(e.target===el.sheetBg)closeSheet(); });
-  el.saveBtn.onclick=function(){ gasUrl=el.gasUrl.value.trim(); LS.set('tk.gas',gasUrl); paintLabels(); closeSheet(); if(gasUrl)toast('保存しました'); };
+  el.saveBtn.onclick=function(){ gasUrl=el.gasUrl.value.trim()||DEFAULT_GAS; LS.set('tk.gas',gasUrl===DEFAULT_GAS?'':gasUrl); paintLabels(); closeSheet(); toast('保存しました'); };
+  $('resetBtn').onclick=function(){ el.gasUrl.value=DEFAULT_GAS; el.testMsg.textContent=''; };
   el.testBtn.onclick=function(){
     var u=el.gasUrl.value.trim(); if(!u){el.testMsg.className='ng';el.testMsg.textContent='URLを入れてください';return;}
     el.testMsg.className='';el.testMsg.textContent='接続中…';
     var save0=gasUrl; gasUrl=u;
     translate('こんにちは','ja',P().tr).then(function(t){ el.testMsg.className='ok'; el.testMsg.textContent='OK: こんにちは → '+t; })
-      .catch(function(e){ el.testMsg.className='ng'; el.testMsg.textContent='つながりません（'+((e&&e.message)||'')+'）。URLが /exec で終わっているか、デプロイの「アクセスできるユーザー」が「全員」になっているか確認してください。'; })
+      .catch(function(e){ el.testMsg.className='ng'; el.testMsg.textContent='つながりません（'+((e&&e.message)||'')+'）。「標準に戻す」を押してから、もう一度テストしてください。'; })
       .then(function(){ gasUrl=save0; });
   };
 
