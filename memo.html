@@ -153,7 +153,7 @@
     <button class="sec" id="copyBtn">今日をコピー</button>
     <button class="sec danger" id="clearBtn">画面を消す</button>
   </div>
-  <div class="hint">離すと自動でスプレッドシートに保存　<span id="ver">m2</span></div>
+  <div class="hint">離すと自動でスプレッドシートに保存　<span id="ver">m3</span></div>
 </footer>
 
 <div class="sheet-bg" id="sheetBg" hidden>
@@ -190,7 +190,7 @@
   var gasUrl=storedGas||DEFAULT_GAS;
   var items=LS.get('vm.items',[]);        // {id,t,d,tag,text,status:'wait'|'ok'|'ng',err}
   var sheetUrl=LS.get('vm.sheetUrl','');
-  var want=false,rec=null,pressAt=0,lastInterim='',gotFinal=false,clearArmed=0;
+  var want=false,rec=null,pressAt=0,lastInterim='',gotFinal=false,clearArmed=0,finals=[];
   document.body.dataset.size=LS.get('vm.size','normal');
 
   function two(n){return (n<10?'0':'')+n;}
@@ -294,22 +294,22 @@
     try{rec=new SR();}catch(e){fail('この端末では音声認識を使えません。');return;}
     rec.lang='ja-JP'; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1;
     rec.onstart=function(){setState('聞いています');};
-    rec.onresult=function(e){var live='';for(var i=e.resultIndex;i<e.results.length;i++){var r=e.results[i];if(r.isFinal){gotFinal=true;addItem(r[0].transcript);}else live+=r[0].transcript;}lastInterim=live;showInterim(live);};
+    rec.onresult=function(e){var live='';for(var i=e.resultIndex;i<e.results.length;i++){var r=e.results[i];if(r.isFinal){gotFinal=true;var t=(r[0].transcript||'').trim();if(t)finals.push(t);}else live+=r[0].transcript;}lastInterim=live;showInterim((finals.length?finals.join(' ')+' ':'')+live);};
     rec.onerror=function(e){var c=e.error;
       if(c==='not-allowed'||c==='service-not-allowed'){fail('マイクの使用が許可されていません。ブラウザの設定でマイクを「許可」にしてください。');}
       else if(c==='audio-capture'){ if(stream){meterStop();meterOff=true;LS.set('vm.meterOff',true);fail('音量メーターを無効にしました。もう一度押して話してください。');} else fail('マイクが見つかりません。'); }
       else if(c==='network'){setState('通信待ち');}
       else if(c!=='no-speech'&&c!=='aborted'){setState('再開します（'+c+'）');}
     };
-    rec.onend=function(){ if(want){showInterim('');setTimeout(spin,300);return;} if(!gotFinal&&lastInterim.trim()){addItem(lastInterim);} lastInterim=''; showInterim(''); setState('待機中'); };
+    rec.onend=function(){ if(want){setTimeout(spin,300);return;} if(lastInterim.trim())finals.push(lastInterim.trim()); var joined=finals.join(' ').replace(/\s+/g,' ').trim(); finals=[]; lastInterim=''; showInterim(''); if(joined)addItem(joined); setState('待機中'); };
     try{rec.start();}catch(e){setTimeout(spin,500);}
   }
   function paintBtn(){ el.talkBtn.classList.toggle('on',want); el.talkLabel.textContent=want?'聞いています… 離すと保存':'押しながら話す'; document.body.dataset.rec=want?'on':'off'; }
   function fail(m){want=false;paintBtn();setState('停止');el.fatal.hidden=false;el.fatal.textContent=m;}
   function pttDown(e){ if(e&&e.preventDefault)e.preventDefault(); if(want)return;
     if(!SR){el.fatal.hidden=false;el.fatal.textContent='このブラウザは音声認識に対応していません。iPhoneでは Safari か Chrome で開いてください。';return;}
-    el.fatal.hidden=true; pressAt=Date.now(); lastInterim=''; gotFinal=false; want=true; paintBtn(); setState('マイクを準備中'); spin(); meterStart(); }
-  function pttUp(e){ if(e&&e.preventDefault)e.preventDefault(); if(!want)return; var shortTap=Date.now()-pressAt<350; want=false; paintBtn(); setState('保存しています'); meterStop(); if(rec){try{rec.stop();}catch(x){}} if(shortTap&&!lastInterim){toast('ボタンを押したまま話してください');setState('待機中');} }
+    el.fatal.hidden=true; pressAt=Date.now(); lastInterim=''; gotFinal=false; finals=[]; want=true; paintBtn(); setState('マイクを準備中'); spin(); meterStart(); }
+  function pttUp(e){ if(e&&e.preventDefault)e.preventDefault(); if(!want)return; var shortTap=Date.now()-pressAt<350; want=false; paintBtn(); setState('保存しています'); meterStop(); if(rec){try{rec.stop();}catch(x){}} if(shortTap&&!lastInterim&&!finals.length){toast('ボタンを押したまま話してください');setState('待機中');} }
   el.talkBtn.addEventListener('pointerdown',pttDown); el.talkBtn.addEventListener('pointerup',pttUp); el.talkBtn.addEventListener('pointercancel',pttUp);
   el.talkBtn.addEventListener('pointerleave',function(e){if(want)pttUp(e);}); el.talkBtn.addEventListener('contextmenu',function(e){e.preventDefault();});
   window.addEventListener('blur',function(){if(want)pttUp();});
