@@ -196,7 +196,7 @@
     <button class="talk partner flag" data-lang="en" aria-label="押しながら英語で話す"><span>🇬🇧</span></button>
     <button class="talk partner flag" data-lang="km" aria-label="押しながらカンボジア語で話す"><span>🇰🇭</span></button>
   </div>
-  <div class="hint">🇯🇵 押しながら日本語で話す → 右上で選んだ国の言葉に　／　他の国旗 押しながらその国の言葉で話す → 日本語に</div>
+  <div class="hint">🇯🇵 押しながら日本語で話す → 右上で選んだ国の言葉に　／　他の国旗 押しながらその国の言葉で話す → 日本語に<br><span id="ver">v9</span></div>
   <div class="row">
     <button class="sec on" id="autoBtn">🔊 自動読み上げ</button>
     <button class="sec" id="copyBtn">全部コピー</button>
@@ -216,6 +216,11 @@
       <button class="sec" id="testBtn">接続テスト</button>
       <button class="sec on" id="saveBtn">保存して閉じる</button>
     </div>
+    <div class="row">
+      <button class="sec" id="diagBtn">🩺 診断を実行</button>
+      <button class="sec" id="diagCopyBtn">診断結果をコピー</button>
+    </div>
+    <pre id="diag" style="margin:0;white-space:pre-wrap;font-size:12px;line-height:1.5;color:var(--ink-soft);font-family:'JetBrains Mono',ui-monospace,monospace"></pre>
   </div>
 </div>
 
@@ -342,7 +347,12 @@
       var timer=setTimeout(function(){cleanup();var e=new Error('時間切れ');e.name='AbortError';rej(e);},25000);
       function cleanup(){clearTimeout(timer);try{delete window[cb];}catch(e){window[cb]=undefined;}if(s.parentNode)s.parentNode.removeChild(s);}
       window[cb]=function(j){cleanup(); if(j&&j.ok)res(j.text); else rej(new Error((j&&j.error)||'server'));};
-      s.onerror=function(){cleanup();rej(new Error('通信エラー'));};
+      s.onerror=function(){cleanup();
+        // JSONPが失敗したら fetch で再挑戦（ブラウザによってはこちらが通る）
+        fetch(gasUrl+(gasUrl.indexOf('?')>0?'&':'?')+'q='+encodeURIComponent(text)+'&source='+from+'&target='+to,{mode:'cors',credentials:'omit'})
+          .then(function(r){return r.json();}).then(function(j){ if(j&&j.ok)res(j.text); else rej(new Error((j&&j.error)||'server')); })
+          .catch(function(e2){ rej(new Error('通信エラー('+((e2&&e2.message)||'')+')')); });
+      };
       s.src=gasUrl+(gasUrl.indexOf('?')>0?'&':'?')+'q='+encodeURIComponent(text)+'&source='+from+'&target='+to+'&callback='+cb+'&_='+Date.now();
       document.head.appendChild(s);
     });
@@ -502,6 +512,34 @@
       .catch(function(e){ el.testMsg.className='ng'; el.testMsg.textContent='つながりません（'+((e&&e.message)||'')+'）。「標準に戻す」を押してから、もう一度テストしてください。'; })
       .then(function(){ gasUrl=save0; });
   };
+
+  // ---------- diagnostics ----------
+  var diagEl=$('diag');
+  function dline(t){ diagEl.textContent+=t+'\n'; }
+  function timed(label,fn){ var t0=Date.now(); return fn().then(function(v){dline('OK  '+label+' ('+(Date.now()-t0)+'ms) '+(v||''));},function(e){dline('NG  '+label+' ('+(Date.now()-t0)+'ms) '+((e&&e.message)||e));}); }
+  $('diagBtn').onclick=function(){
+    diagEl.textContent='';
+    dline('版: '+$('ver').textContent+'  '+new Date().toLocaleString('ja-JP'));
+    dline('UA: '+navigator.userAgent.slice(0,90));
+    dline('URL末尾: …'+gasUrl.slice(-24)+'  (len '+gasUrl.length+')');
+    dline('online: '+navigator.onLine);
+    var q='?q=test&source=ja&target=en';
+    timed('1 script経由(JSONP)',function(){ return new Promise(function(res,rej){
+        var cb='diag_cb_'+Date.now(); var sc=document.createElement('script');
+        var tm=setTimeout(function(){cl();rej(new Error('25秒待っても返事なし'));},25000);
+        function cl(){clearTimeout(tm);try{delete window[cb];}catch(x){} if(sc.parentNode)sc.parentNode.removeChild(sc);}
+        window[cb]=function(j){cl();res(JSON.stringify(j));};
+        sc.onerror=function(){cl();rej(new Error('script読み込み失敗'));};
+        sc.src=gasUrl+q+'&callback='+cb; document.head.appendChild(sc);
+      }); })
+    .then(function(){ return timed('2 fetch経由(JSON)',function(){ return fetch(gasUrl+q,{mode:'cors',credentials:'omit'}).then(function(r){return r.text().then(function(t){return 'status '+r.status+' '+t.slice(0,60);});}); }); })
+    .then(function(){ return timed('3 fetch no-cors',function(){ return fetch(gasUrl+q,{mode:'no-cors',credentials:'omit'}).then(function(r){return 'type '+r.type;}); }); })
+    .then(function(){ return timed('4 google到達',function(){ return fetch('https://www.google.com/generate_204',{mode:'no-cors'}).then(function(r){return 'type '+r.type;}); }); })
+    .then(function(){ return timed('5 googleusercontent到達',function(){ return fetch('https://script.googleusercontent.com/',{mode:'no-cors'}).then(function(r){return 'type '+r.type;}); }); })
+    .then(function(){ return timed('6 GitHub到達',function(){ return fetch(location.href.split('?')[0]+'?_='+Date.now(),{cache:'no-store'}).then(function(r){return 'status '+r.status;}); }); })
+    .then(function(){ dline('--- 診断おわり ---'); });
+  };
+  $('diagCopyBtn').onclick=function(){ copyText(diagEl.textContent,function(){toast('診断結果をコピーしました');}); };
 
   document.addEventListener('visibilitychange',function(){ if(document.hidden&&want)setState('画面が消えています'); });
 
